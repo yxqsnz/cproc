@@ -76,7 +76,7 @@ usage(const char *fmt, ...)
 		va_end(ap);
 		fputc('\n', stderr);
 	}
-	fprintf(stderr, "usage: %s [-c|-S|-E] [-D name[=value]] [-U name] [-s] [-g] [-o output] input...\n", argv0);
+	fprintf(stderr, "usage: %s [-c|-S|-E|-r] [-D name[=value]] [-U name] [-s] [-g] [-o output] input...\n", argv0);
 	exit(2);
 }
 
@@ -295,7 +295,7 @@ kill:
 }
 
 static noreturn void
-buildexe(struct input *inputs, size_t ninputs, char *output)
+buildexe(struct input *inputs, size_t ninputs, char *output, int run_out)
 {
 	struct stageinfo *s = &stages[LINK];
 	size_t i;
@@ -323,6 +323,21 @@ buildexe(struct input *inputs, size_t ninputs, char *output)
 	for (i = 0; i < ninputs; ++i) {
 		if (inputs[i].filetype != OBJ)
 			unlink(inputs[i].name);
+	}
+	if (run_out)
+	{
+		char* command = malloc(strlen("/bin/sh -c ") + strlen(output) + 3);
+		strcpy(command, "/bin/sh -c ");
+		if (output[0] != '/')
+		{
+			strcat(command, "./");
+			strcat(command, output);
+		}
+		else 
+		{
+			strcat(command, output);
+		}
+		system(command);
 	}
 	exit(!succeeded(s->name, pid, status));
 }
@@ -369,6 +384,7 @@ hasprefix(const char *str, const char *pfx)
 int
 main(int argc, char *argv[])
 {
+	int run_out = false;
 	enum stage last = LINK;
 	enum filetype filetype = 0;
 	char *arg, *end, *output = NULL, *arch, *qbearch;
@@ -462,6 +478,9 @@ main(int argc, char *argv[])
 			case 'E':
 				last = PREPROCESS;
 				break;
+			case 'r':
+				    run_out = true;
+					break;
 			case 'g':
 				/* ignore */
 				break;
@@ -583,7 +602,7 @@ main(int argc, char *argv[])
 	if (last == LINK) {
 		if (!output)
 			output = "a.out";
-		buildexe(inputs.val, inputs.len / sizeof(*input), output);
+		buildexe(inputs.val, inputs.len / sizeof(*input), output, run_out);
 	}
 	return 0;
 }
